@@ -1,0 +1,32 @@
+name: emma_marca
+description: Identidad gráfica de Emma para Flutter (colores, letras, logos y tema). La comparten la caja y la app del dueño.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  assets:
+    - assets/logos/
+    - assets/ticket/
+  fonts:
+    # Archivo Black: títulos y frases cortas.
+    - family: ArchivoBlack
+      fonts:
+        - asset: assets/fuentes/ArchivoBlack-Regular.ttf
+    # Archivo (variable, eje wght): textos en Android, iPhone y la app del dueño.
+    # En Windows los textos van en Segoe UI, como pide el manual.
+    - family: Archivo
+      fonts:
+        - asset: assets/fuentes/Archivo.ttf

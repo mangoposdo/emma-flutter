@@ -5,6 +5,7 @@ Caja de Emma (Windows y Android) y app del dueño (Android e iPhone), rehechas e
 ```
 emma_flutter/
   packages/emma_core/   reglas de negocio y base de datos (Dart puro, se prueba sin pantallas)
+  packages/emma_marca/  identidad gráfica: colores, letras, logos y tema (Flutter)
   apps/emma_caja/       app del mostrador: Windows y Android (pantallas en la Fase 2)
   apps/emma_dueno/      app del dueño: Android e iPhone (Fase 6)
 ```
@@ -34,6 +35,18 @@ apps/emma_caja/lib/
 
 Así se prueba en tres niveles: el Model con `dart test` (ya hecho), los ViewModels con pruebas de Riverpod sin pantallas (`ProviderContainer` con servicios sobre SQLite en memoria) y las Vistas a mano o con pruebas de widgets.
 
+## Marca
+
+Todo sale del manual "Identidad gráfica Emma" (octubre de 2026) y vive en `packages/emma_marca`. Las pantallas no escriben colores ni letras a mano: usan `EmmaColores`, `EmmaTema` y `EmmaLogo`.
+
+- **Colores:** azul Emma `#14213D` (barras y texto), rojo toldo `#D7263D`, blanco, gris pizarra `#56607A` (textos de apoyo).
+- **Rojo:** una sola cosa por pantalla, la acción principal (Cobrar, Empezar, Conectar), con `EmmaTema.botonPrincipal(context)`. El tema no usa el rojo en ningún otro lado.
+- **Letras:** títulos en Archivo Black. Textos en Segoe UI en Windows (como dice el manual) y en Archivo en Android e iPhone. Las fuentes van dentro de la app (licencia OFL), así funcionan sin internet.
+- **Logo:** horizontal negativo en la barra azul; principal en fondos claros. Por debajo de 120 px `EmmaLogo` cambia solo al ícono. Nunca estirar, girar, recolorear ni poner sombra.
+- **Ticket:** logo a una tinta de 384 puntos (`assets/ticket/emma-ticket-384.png`), para el generador ESC/POS de la Fase 2.
+- **Ícono de Windows:** `packages/emma_marca/assets/windows/emma.ico`. Después de `flutter create`, copiarlo a `apps/emma_caja/windows/runner/resources/app_icon.ico`.
+- **Cómo se habla en el programa:** de **usted**, frases cortas, palabras del colmado, nada técnico ("Abra la caja para vender", no "Abre la caja"). El tuteo es solo para la publicidad.
+
 ## Estado: Fase 1, primera tarea
 
 Hecho:
@@ -57,6 +70,9 @@ flutter pub get
 cd packages\emma_core
 dart run build_runner build --delete-conflicting-outputs   # genera database.g.dart
 dart test
+
+cd ..\emma_marca
+flutter test
 ```
 
 Las pruebas de `emma_core` usan el SQLite del sistema. En Windows hace falta `sqlite3.dll` (64 bits):

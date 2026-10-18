@@ -18,7 +18,7 @@ class PermisoDenegado extends EmmaError {
 }
 
 class CajaCerrada extends EmmaError {
-  const CajaCerrada() : super('La caja está cerrada. Abre la caja para vender.');
+  const CajaCerrada() : super('La caja está cerrada. Abra la caja para vender.');
 }
 
 class LimiteFiadoExcedido extends EmmaError {

@@ -11,6 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  emma_marca:
+    path: ../../packages/emma_marca
 
 flutter:
   uses-material-design: true

@@ -11,6 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  emma_marca:
+    path: ../../packages/emma_marca
   emma_core:
     path: ../../packages/emma_core
   sqlite3_flutter_libs: ^0.5.0

@@ -7,5 +7,6 @@ environment:
 
 workspace:
   - packages/emma_core
+  - packages/emma_marca
   - apps/emma_caja
   - apps/emma_dueno

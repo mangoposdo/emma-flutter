@@ -321,7 +321,7 @@ class VentaService {
   Future<void> anular(Sesion sesion, int ventaId, String motivo) async {
     if (!sesion.esDueno) throw const PermisoDenegado('Solo el dueño puede anular ventas.');
     final m = motivo.trim();
-    if (m.isEmpty) throw const DatoInvalido('Escribe el motivo de la anulación.');
+    if (m.isEmpty) throw const DatoInvalido('Escriba el motivo de la anulación.');
     final fecha = _reloj();
 
     await db.transaction(() async {

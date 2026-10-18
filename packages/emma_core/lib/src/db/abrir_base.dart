@@ -105,7 +105,7 @@ Future<T> abrirConRespaldo<T>({
     });
     throw ErrorMigracion(
       'No se pudo actualizar la base de datos. Se volvió a la copia de antes de '
-      'actualizar y no se perdió nada. Llama a soporte.',
+      'actualizar y no se perdió nada. Llame a soporte.',
       causa: e,
       copia: copia.path,
     );
