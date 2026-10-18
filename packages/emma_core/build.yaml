@@ -1,0 +1,11 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          # Fechas guardadas como segundos desde 1970 (hora local del colmado al leer).
+          store_date_time_values_as_text: false
+          sql:
+            dialect: sqlite
+            options:
+              version: "3.38"

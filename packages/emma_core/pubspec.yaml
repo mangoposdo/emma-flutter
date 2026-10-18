@@ -1,0 +1,21 @@
+name: emma_core
+description: Reglas de negocio, base de datos, cola de nube y tickets de Emma. Dart puro.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  cryptography: ^2.7.0
+  drift: ^2.20.0
+  path: ^1.9.0
+  sqlite3: ^2.4.0
+  uuid: ^4.4.0
+
+dev_dependencies:
+  build_runner: ^2.4.14
+  drift_dev: ^2.20.0
+  lints: ">=4.0.0 <7.0.0"
+  test: ^1.25.0

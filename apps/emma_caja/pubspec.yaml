@@ -1,0 +1,19 @@
+name: emma_caja
+description: Emma Caja. Punto de venta para colmados, Windows y Android, sin internet.
+version: 1.0.0+1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  emma_core:
+    path: ../../packages/emma_core
+  sqlite3_flutter_libs: ^0.5.0
+
+flutter:
+  uses-material-design: true

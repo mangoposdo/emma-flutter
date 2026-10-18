@@ -1,0 +1,17 @@
+.dart_tool/
+.packages
+build/
+pubspec_overrides.yaml
+*.iml
+.idea/
+.vscode/
+coverage/
+
+# Código generado por drift (se genera con build_runner)
+*.g.dart
+
+# Plataformas generadas por flutter create se versionan cuando existan;
+# estas carpetas temporales no.
+**/windows/flutter/ephemeral/
+**/android/.gradle/
+**/ios/Flutter/ephemeral/

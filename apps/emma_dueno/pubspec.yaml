@@ -1,0 +1,16 @@
+name: emma_dueno
+description: Emma Dueño. Ventas, cuadres, delivery y clientes del colmado en el celular (solo lectura).
+version: 1.0.0+1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

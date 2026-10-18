@@ -1,0 +1,11 @@
+name: emma_flutter
+description: Monorepo de Emma (caja, app del dueño y núcleo común).
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
+workspace:
+  - packages/emma_core
+  - apps/emma_caja
+  - apps/emma_dueno
