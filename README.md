@@ -47,17 +47,37 @@ Todo sale del manual "Identidad gráfica Emma" (octubre de 2026) y vive en `pack
 - **Ícono de Windows:** `packages/emma_marca/assets/windows/emma.ico`. Después de `flutter create`, copiarlo a `apps/emma_caja/windows/runner/resources/app_icon.ico`.
 - **Cómo se habla en el programa:** de **usted**, frases cortas, palabras del colmado, nada técnico ("Abra la caja para vender", no "Abre la caja"). El tuteo es solo para la publicidad.
 
-## Estado: Fase 1, primera tarea
+## Estado: la caja de la 0.7.1, completa
 
-Hecho:
+La caja replica la versión de escritorio en C# (0.7.1, carpeta `donador-emmapos/emma-main-actualizado`): mismas pantallas, textos, teclas y reglas, con el mismo contrato con la nube.
 
-- Monorepo con pub workspaces (un solo `flutter pub get` en la raíz).
-- Esquema drift con las 15 tablas del modelo de datos, migración inicial (versión 1) y siembra del primer arranque: negocio con `instalacionId`, usuario `admin` dueño con PIN 1234 (hash PBKDF2-SHA256, 100,000 vueltas, igual que la 0.6) y el producto interno "Varios".
-- Apertura de la base en `C:\ProgramData\ColmadoEmma\emma.db` con WAL, `synchronous=FULL` y llaves foráneas. Si hay migración pendiente, copia a `Respaldos\AntesDeActualizar` y, si falla, vuelve sola a la copia.
-- `VentaService`: cobrar (efectivo con devuelta, monto exacto, tarjeta, transferencia, fiado con límite, descuento en pesos, venta suelta, libra por monto), anular, tickets pendientes. Todo en una sola transacción con el evento `venta.registrada` / `venta.anulada` para la nube.
-- Pruebas: `venta_service_test.dart` (27), `migracion_test.dart` (10), `dinero_test.dart` (8).
+- **Núcleo (`emma_core`)**: esquema con 19 tablas (las 15 de la 0.6 más suplidores, compras, líneas de compra y alias de productos). Servicios de ventas, pedidos abiertos, delivery, caja y cuadre, productos e inventario (ajustes, CSV), compras (con lectura de factura y alias aprendidos), clientes y fiado, usuarios y bitácora, reportes y recurrencia, configuración, respaldos y mantenimiento, nube (activar, enviar eventos, leer factura) e impresión ESC/POS (venta, abono, cuadre, comanda, logo, intensidad, CP850).
+- **App (`emma_caja`)**: entrada con usuario y PIN, menú lateral de la 0.7 (el cajero no ve Compras, Reportes, Usuarios ni Configuración) y las ocho pantallas. Al abrir: revisa que la base esté sana (si no, ofrece el último respaldo), respalda (y cada 2 horas), mantenimiento semanal, aviso de reloj atrasado y envío a la nube cada minuto.
+- **Impresión**: Windows por winspool en modo RAW (como la 0.7); macOS y Linux por CUPS (`lp -o raw`).
+- **Pruebas**: 128 del núcleo (las de la 0.7.1 traducidas, más las propias) y 108 de la app (ViewModels con base en memoria, y una prueba que arma la entrada y las ocho pantallas a 1280 x 800 para detectar desbordes).
 
-Falta en la Fase 1: CajaService (abrir, entradas y salidas, cuadre), FiadoService (abonos, estado de cuenta), ProductoService (ajustes, CSV), UsuarioService (login, PIN, bitácora), TicketService (pedidos abiertos), recurrencia de clientes, y llevar las pruebas al nivel de las 53 de la 0.6.
+Diferencias con la 0.7 a propósito:
+
+- **Escanear agrega 1 al instante** (en la 0.7 pasaba a la casilla de cantidad). Lo que va por libra sí pasa a la cantidad (libras o `$50`).
+- **La lista de productos sale desde la primera letra**, debajo de la casilla del código (la 0.7 buscaba al dar Enter). Primero los que empiezan con lo escrito; un toque escoge, o las flechas y Enter. Sin ninguno marcado, Enter sigue buscando por código primero, y la lista espera 120 ms a que se deje de escribir para no salir con el lector de código de barras.
+- **Libra por monto exacta**: "$50" de queso cobra exactamente RD$ 50.00 (la 0.7 redondeaba la cantidad y podía dar un centavo de diferencia).
+- **Base nueva y aparte**: `C:\ProgramData\ColmadoEmma\emma.db` (la 0.7 usa `colmado.db` en la misma carpeta; no se tocan). La importación de los datos de la 0.7 es la Fase 7; los PIN de la 0.7 ya se pueden verificar.
+
+Pendiente: importar los datos de la 0.7 (Fase 7), la app del dueño, y probar la impresión y el instalador en Windows. En macOS la "copia extra en USB" necesita permiso de carpeta del sistema (sandbox); en Windows no.
+
+## Cómo probar en macOS (mientras se desarrolla)
+
+```bash
+cd emma_flutter && flutter pub get
+cd packages/emma_core && dart run build_runner build && dart test
+cd ../../apps/emma_caja && flutter test && flutter run -d macos
+```
+
+Entre con usuario `admin` y PIN `1234`. En debug, una base nueva trae productos de colmado de prueba.
+
+La base queda en `~/Library/Containers/com.example.emmaCaja/Data/Library/Application Support/com.example.emmaCaja/emma.db`. Para empezar de cero, cierre la app y borre esa carpeta. No abra dos copias de la app a la vez sobre la misma base.
+
+`emma_core` fija `analyzer` por debajo de 10: con analyzer 10, drift_dev 2.31 (la última para sqlite3 2.x) genera las tablas **sin llaves foráneas**. La prueba "las tablas tienen sus llaves foráneas" lo vigila.
 
 ## Cómo probar en Windows
 
@@ -107,15 +127,17 @@ del test\widget_test.dart
 2. **Redondeo de línea:** al centavo, la mitad sube.
 3. **Existencia negativa permitida.** El PRD no dice que se bloquee la venta sin existencia; no se bloquea.
 4. **Límite de fiado:** se permite llegar justo al límite; pasarlo, no. Límite 0 = sin límite.
-5. **Anular una venta de un turno ya cerrado** se permite (el PRD no lo limita). Eso cambia el cuadre de un turno cerrado; hay que decidir si se bloquea.
+5. **Anular una venta de un turno ya cerrado no se permite** (igual que la 0.7): se corrige con un ajuste de inventario o de caja.
 6. **Descuentos van a la bitácora** (lo dice el documento de diseño).
-7. **Forzar cambio de PIN:** sin columna nueva; al entrar con `admin` y PIN 1234 la app pide cambiarlo.
-8. **`nubeLlave`** se deja vacía en SQLite; la llave real va en `flutter_secure_storage`.
+7. **PIN de fábrica:** al entrar con `admin` y PIN 1234 la app avisa que se cambie (igual que la 0.7).
+8. **`nubeLlave`** se guarda en la base, como la 0.7 (pasarla a `flutter_secure_storage` queda para después).
 9. **Nombres de tablas en snake_case.** La importación de la 0.6 (Fase 7) mapeará los nombres de EF Core.
-10. **Código reservado de Varios:** `__VARIOS__`.
+10. **Códigos reservados:** `__VARIOS__` (venta suelta) y `__ENVIO__` (cargo del delivery). Los productos pueden no tener código.
+11. **El precio sale de la base** al cobrar, no de la pantalla (igual que la 0.7); solo los servicios llevan el monto escrito.
+12. **Ancho del ticket en letras:** 48 (80 mm) o 32 (58 mm), como la 0.7.
 
 ## Preguntas abiertas
 
-- ¿Cómo guarda la 0.6 el hash del PIN (orden de sal y hash, base64 o hex)? Hace falta para que el PIN siga funcionando después de importar en la Fase 7.
+- Resuelto: la 0.6/0.7 guarda el PIN como `<vueltas>.<sal base64>.<hash base64>` (PBKDF2-SHA256); `PinHasher` lo verifica.
 - ¿`tasaItbis` se usa en algún flujo hoy? Queda guardada pero sin uso.
-- ¿Los nombres de tablas y columnas de la base de la 0.6? Con acceso al repo de la 0.6 se resuelve.
+- Los nombres de tablas y columnas de la 0.7 están en `emma-main-actualizado/src/Colmado.Core/Modelos/Entidades.cs` (EF Core, montos como enteros con 4 decimales); la Fase 7 los mapea.

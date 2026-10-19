@@ -8,6 +8,9 @@ import 'package:cryptography/cryptography.dart';
 /// Formato guardado: `pbkdf2-sha256$<vueltas>$<sal base64>$<hash base64>`.
 /// Las vueltas van dentro del texto, así se pueden subir más adelante sin
 /// romper los PIN ya guardados.
+///
+/// También verifica el formato de la 0.6/0.7 (`<vueltas>.<sal base64>.<hash base64>`,
+/// PBKDF2-SHA256 con sal de 16 bytes), para que los PIN sigan sirviendo al importar.
 class PinHasher {
   PinHasher({this.vueltas = vueltasPorDefecto});
 
@@ -25,6 +28,18 @@ class PinHasher {
   }
 
   Future<bool> verificar(String pin, String guardado) async {
+    final viejo = guardado.split('.');
+    if (viejo.length == 3 && int.tryParse(viejo[0]) != null) {
+      try {
+        final it = int.parse(viejo[0]);
+        final esperado = base64Decode(viejo[2]);
+        if (it <= 0 || esperado.isEmpty) return false;
+        final calculado = await _derivar(pin, base64Decode(viejo[1]), it, bits: esperado.length * 8);
+        return _igualesTiempoConstante(calculado, esperado);
+      } on FormatException {
+        return false;
+      }
+    }
     final partes = guardado.split(r'$');
     if (partes.length != 4 || partes[0] != _prefijo) return false;
     final it = int.tryParse(partes[1]);
@@ -35,8 +50,8 @@ class PinHasher {
     return _igualesTiempoConstante(calculado, esperado);
   }
 
-  static Future<List<int>> _derivar(String pin, List<int> sal, int vueltas) async {
-    final algoritmo = Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: vueltas, bits: 256);
+  static Future<List<int>> _derivar(String pin, List<int> sal, int vueltas, {int bits = 256}) async {
+    final algoritmo = Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: vueltas, bits: bits);
     final llave = await algoritmo.deriveKeyFromPassword(password: pin, nonce: sal);
     return llave.extractBytes();
   }

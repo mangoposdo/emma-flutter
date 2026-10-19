@@ -10,11 +10,15 @@ environment:
 dependencies:
   cryptography: ^2.7.0
   drift: ^2.20.0
+  http: ^1.2.0
   path: ^1.9.0
   sqlite3: ^2.4.0
   uuid: ^4.4.0
 
 dev_dependencies:
+  # drift_dev 2.31 (la última que acepta sqlite3 2.x) no lee `references(Tabla, #id)`
+  # con analyzer 10: genera las tablas SIN llaves foráneas. No subir hasta pasar a sqlite3 3.x.
+  analyzer: ">=8.1.0 <10.0.0"
   build_runner: ^2.4.14
   drift_dev: ^2.20.0
   lints: ">=4.0.0 <7.0.0"

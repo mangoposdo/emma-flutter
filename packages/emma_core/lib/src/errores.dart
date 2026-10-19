@@ -17,8 +17,13 @@ class PermisoDenegado extends EmmaError {
   const PermisoDenegado(super.mensaje);
 }
 
+/// Lanza [PermisoDenegado] si [esDueno] es falso: "Solo el dueño puede [accion]."
+void requiereDueno(bool esDueno, String accion) {
+  if (!esDueno) throw PermisoDenegado('Solo el dueño puede $accion.');
+}
+
 class CajaCerrada extends EmmaError {
-  const CajaCerrada() : super('La caja está cerrada. Abra la caja para vender.');
+  const CajaCerrada([super.mensaje = 'La caja está cerrada. Abra la caja para vender.']);
 }
 
 class LimiteFiadoExcedido extends EmmaError {

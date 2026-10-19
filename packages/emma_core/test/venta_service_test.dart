@@ -101,7 +101,7 @@ void main() {
       expect(d['Total'], 117.5);
       expect(d['Descuento'], 0);
       expect(d['FormaPago'], 'Efectivo');
-      expect(d['Cajero'], 'Administrador');
+      expect(d['Cajero'], 'Dueño');
       expect(d['NombreCliente'], 'Doña Rosa');
       expect(d['ClienteId'], isNull);
       expect(d['EsDelivery'], false);
@@ -382,7 +382,7 @@ void main() {
         'Id': r.ventaId,
         'Total': 142.5,
         'MotivoAnulacion': 'Se equivocó de producto',
-        'AnuladaPor': 'Administrador',
+        'AnuladaPor': 'Dueño',
         'Fecha': '2026-10-18T10:30:05',
       });
     });

@@ -24,17 +24,40 @@ String formatoMonto(int centavos) {
 /// "RD$ 1,234.50".
 String formatoRD(int centavos) => 'RD\$ ${formatoMonto(centavos)}';
 
+/// "1,235": al peso, la mitad sube. Para los botones de los pedidos.
+String formatoMontoEntero(int centavos) {
+  final pesos = centavos >= 0 ? (centavos + 50) ~/ 100 : -((-centavos + 50) ~/ 100);
+  final f = formatoMonto(pesos * 100);
+  return f.substring(0, f.length - 3);
+}
+
+/// Al centavo, la mitad sube: precio (centavos) por una cantidad decimal
+/// expresada en milésimas. Igual que [totalLinea]; con otro nombre para costos.
+int multiplicar(int centavos, int milesimas) => totalLinea(centavos, milesimas);
+
 final _reMonto = RegExp(r'^(\d+)(?:\.(\d{1,2}))?$');
 final _reCantidad = RegExp(r'^(\d+)(?:\.(\d{1,3}))?$');
 
-/// Lee "1,234.50", "50", "$50", "RD$ 50.5". Devuelve centavos o null si no es un monto.
-int? parsearMonto(String texto) {
-  final limpio = texto
+/// Quita "RD$", "$" y espacios, y deja el punto como decimal. Acepta
+/// "1,250.50" (coma de miles) y "1250,50" (coma decimal, como Excel en español).
+String _numeroLimpio(String texto) {
+  var s = texto
       .trim()
       .replaceAll(RegExp(r'^RD\$', caseSensitive: false), '')
       .replaceAll(r'$', '')
-      .replaceAll(',', '')
       .replaceAll(' ', '');
+  final coma = s.lastIndexOf(',');
+  if (coma >= 0 && !s.contains('.') && coma >= s.length - 3 && s.indexOf(',') == coma) {
+    s = s.replaceFirst(',', '.');
+  } else {
+    s = s.replaceAll(',', '');
+  }
+  return s;
+}
+
+/// Lee "1,234.50", "50", "$50", "RD$ 50.5", "12,50". Devuelve centavos o null si no es un monto.
+int? parsearMonto(String texto) {
+  final limpio = _numeroLimpio(texto);
   final m = _reMonto.firstMatch(limpio);
   if (m == null) return null;
   final entero = int.parse(m.group(1)!);
@@ -42,9 +65,9 @@ int? parsearMonto(String texto) {
   return entero * 100 + int.parse(dec);
 }
 
-/// Lee "3", "0.5", "1.25". Devuelve milésimas o null.
+/// Lee "3", "0.5", "1.25", "0,5". Devuelve milésimas o null.
 int? parsearCantidad(String texto) {
-  final m = _reCantidad.firstMatch(texto.trim());
+  final m = _reCantidad.firstMatch(_numeroLimpio(texto));
   if (m == null) return null;
   final entero = int.parse(m.group(1)!);
   final dec = (m.group(2) ?? '').padRight(3, '0');

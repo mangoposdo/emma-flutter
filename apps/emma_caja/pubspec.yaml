@@ -11,11 +11,30 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   emma_marca:
     path: ../../packages/emma_marca
   emma_core:
     path: ../../packages/emma_core
   sqlite3_flutter_libs: ^0.5.0
+  flutter_riverpod: ^3.0.0
+  go_router: ^16.0.0
+  path_provider: ^2.1.0
+  path: ^1.9.0
+  file_selector: ^1.0.3
+  # Enderezar y achicar las fotos de facturas antes de mandarlas a leer.
+  image: ^4.2.0
+  # Impresión RAW en Windows (winspool).
+  win32: ^5.5.0
+  ffi: ^2.1.0
+  # Para los datos de prueba (Value) y la base en memoria de las pruebas.
+  drift: ^2.20.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ">=5.0.0 <7.0.0"
 
 flutter:
   uses-material-design: true

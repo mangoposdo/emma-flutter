@@ -18,13 +18,15 @@ class Negocios extends Table {
   TextColumn get rnc => text().nullable()();
   TextColumn get direccion => text().nullable()();
   TextColumn get telefono => text().nullable()();
-  TextColumn get mensajeTicket => text().nullable()();
+  TextColumn get mensajeTicket => text().withDefault(const Constant('Gracias por su compra'))();
   TextColumn get impresora => text().nullable()();
 
-  /// 80 o 58 (mm).
-  IntColumn get anchoTicket => integer().withDefault(const Constant(80))();
+  /// Letras por línea: 48 en papel de 80 mm, 32 en papel de 58 mm.
+  IntColumn get anchoTicket => integer().withDefault(const Constant(48))();
   BoolColumn get abrirGaveta => boolean().withDefault(const Constant(true))();
-  BoolColumn get ticketOscuro => boolean().withDefault(const Constant(false))();
+
+  /// Todo el ticket en letra resaltada: sale más oscuro en papel térmico.
+  BoolColumn get ticketOscuro => boolean().withDefault(const Constant(true))();
   TextColumn get intensidadTicket =>
       textEnum<IntensidadTicket>().withDefault(const Constant('normal'))();
   BlobColumn get logoTicket => blob().nullable()();
@@ -74,7 +76,9 @@ class Productos extends Table {
   String get tableName => 'productos';
 
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get codigo => text().unique()();
+
+  /// Código de barras. Puede faltar (pan, plátano); si está, no se repite.
+  TextColumn get codigo => text().nullable().unique()();
   TextColumn get nombre => text()();
   IntColumn get categoriaId => integer().nullable().references(Categorias, #id)();
   IntColumn get costo => integer().withDefault(const Constant(0))();
@@ -307,4 +311,71 @@ class EventosSalida extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {id};
+}
+
+/// A quien se le compra la mercancía (distribuidora, almacén, el camión de la cerveza...).
+@DataClassName('Suplidor')
+@TableIndex(name: 'ix_suplidores_nombre', columns: {#nombre})
+class Suplidores extends Table {
+  @override
+  String get tableName => 'suplidores';
+
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nombre => text()();
+  TextColumn get telefono => text().nullable()();
+  BoolColumn get activo => boolean().withDefault(const Constant(true))();
+}
+
+/// Mercancía que entra al colmado. Sube la existencia y deja el costo nuevo.
+@DataClassName('Compra')
+@TableIndex(name: 'ix_compras_fecha', columns: {#fecha})
+class Compras extends Table {
+  @override
+  String get tableName => 'compras';
+
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get fecha => dateTime()();
+  IntColumn get suplidorId => integer().nullable().references(Suplidores, #id)();
+
+  /// Número de la factura del suplidor, si tiene.
+  TextColumn get factura => text().nullable()();
+  TextColumn get pago => textEnum<PagoCompra>()();
+  IntColumn get total => integer()();
+  IntColumn get usuarioId => integer().references(Usuarios, #id)();
+  TextColumn get nota => text().nullable()();
+}
+
+@DataClassName('CompraLinea')
+@TableIndex(name: 'ix_compra_lineas_compra', columns: {#compraId})
+class CompraLineas extends Table {
+  @override
+  String get tableName => 'compra_lineas';
+
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get compraId => integer().references(Compras, #id)();
+  IntColumn get productoId => integer().references(Productos, #id)();
+  TextColumn get descripcion => text()();
+
+  /// Milésimas.
+  IntColumn get cantidad => integer()();
+
+  /// Centavos por unidad o por libra.
+  IntColumn get costo => integer()();
+  IntColumn get total => integer()();
+}
+
+/// Cómo le dice un suplidor a un producto en su factura ("ARROZ SEL 25LB" =
+/// Arroz Selecto 25 lb). Se aprende cuando el dueño empareja una factura leída.
+@DataClassName('AliasProducto')
+@TableIndex(name: 'ix_alias_productos', columns: {#suplidorId, #texto})
+class AliasProductos extends Table {
+  @override
+  String get tableName => 'alias_productos';
+
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get suplidorId => integer().nullable().references(Suplidores, #id)();
+
+  /// Texto de la factura ya normalizado (minúsculas, sin acentos ni signos).
+  TextColumn get texto => text()();
+  IntColumn get productoId => integer().references(Productos, #id)();
 }

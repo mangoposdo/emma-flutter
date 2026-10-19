@@ -52,7 +52,7 @@ Future<int> crearProducto(
   UnidadVenta unidad = UnidadVenta.unidad,
 }) =>
     db.into(db.productos).insert(ProductosCompanion.insert(
-          codigo: codigo,
+          codigo: Value(codigo),
           nombre: nombre,
           precio: precio,
           costo: Value(costo),

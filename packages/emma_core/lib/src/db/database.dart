@@ -18,6 +18,12 @@ part 'database.g.dart';
 /// No lleva inventario.
 const codigoVarios = '__VARIOS__';
 
+/// Código reservado del cargo por llevar un delivery. No lleva inventario.
+const codigoEnvio = '__ENVIO__';
+
+/// Productos de servicio: se cobra el monto que se escriba y no llevan inventario.
+bool esServicio(Producto p) => p.codigo == codigoVarios || p.codigo == codigoEnvio;
+
 /// Usuario y PIN del primer arranque (el PRD obliga a cambiarlo al entrar).
 const loginInicial = 'admin';
 const pinInicial = '1234';
@@ -38,6 +44,10 @@ const pinInicial = '1234';
   MovimientosCaja,
   Bitacora,
   EventosSalida,
+  Suplidores,
+  Compras,
+  CompraLineas,
+  AliasProductos,
 ])
 class EmmaDatabase extends _$EmmaDatabase {
   EmmaDatabase(super.e, {PinHasher? pinHasher, String Function()? nuevoUuid, Reloj? reloj})
@@ -73,16 +83,20 @@ class EmmaDatabase extends _$EmmaDatabase {
   Future<void> _sembrarPrimerArranque() async {
     await into(negocios).insert(NegociosCompanion.insert(instalacionId: nuevoUuid()));
     await into(usuarios).insert(UsuariosCompanion.insert(
-      nombre: 'Administrador',
+      nombre: 'Dueño',
       login: loginInicial,
       pinHash: await pinHasher.hash(pinInicial),
       rol: Rol.dueno,
     ));
     await into(productos).insert(ProductosCompanion.insert(
-      codigo: codigoVarios,
+      codigo: const Value(codigoVarios),
       nombre: 'Varios',
       precio: 0,
-      esRapido: const Value(false),
+    ));
+    await into(productos).insert(ProductosCompanion.insert(
+      codigo: const Value(codigoEnvio),
+      nombre: 'Envío a domicilio',
+      precio: 0,
     ));
   }
 
@@ -93,6 +107,9 @@ class EmmaDatabase extends _$EmmaDatabase {
 
   Future<Producto> productoVarios() =>
       (select(productos)..where((p) => p.codigo.equals(codigoVarios))).getSingle();
+
+  Future<Producto> productoEnvio() =>
+      (select(productos)..where((p) => p.codigo.equals(codigoEnvio))).getSingle();
 
   Future<TurnoCaja?> turnoAbierto() => (select(turnosCaja)
         ..where((t) => t.cierre.isNull())

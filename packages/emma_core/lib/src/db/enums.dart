@@ -31,6 +31,10 @@ enum TipoMovFiado { cargo, abono, anulacionCargo }
 
 enum TipoMovCaja { entrada, salida }
 
+/// Cómo se pagó una compra: con el efectivo de la caja, por fuera (banco,
+/// dinero del dueño) o a crédito con el suplidor.
+enum PagoCompra { deLaCaja, porFuera, credito }
+
 enum EstadoDelivery { tomado, enCamino }
 
 enum IntensidadTicket { normal, masOscura, maxima }

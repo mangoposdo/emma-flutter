@@ -14,6 +14,7 @@ class LineaCobro {
     required this.cantidad,
     required this.precioUnitario,
     required this.total,
+    this.porMonto = false,
   });
 
   /// Cantidad por precio (unidad o libra).
@@ -45,6 +46,7 @@ class LineaCobro {
         cantidad: cantidadPorMonto(monto, precioUnitario),
         precioUnitario: precioUnitario,
         total: monto,
+        porMonto: true,
       );
 
   /// Venta suelta: un monto sin producto. No toca inventario.
@@ -56,12 +58,27 @@ class LineaCobro {
         total: monto,
       );
 
+  /// Producto de servicio ("Varios", envío) con el monto que se cobra.
+  factory LineaCobro.servicio({required int productoId, required String descripcion, required int monto}) =>
+      LineaCobro._(
+        productoId: productoId,
+        descripcion: descripcion,
+        cantidad: milesimasPorUnidad,
+        precioUnitario: monto,
+        total: monto,
+      );
+
   /// null = producto interno "Varios".
   final int? productoId;
   final String descripcion;
   final int cantidad;
+
+  /// Solo cuenta en los servicios: los demás se cobran al precio guardado.
   final int precioUnitario;
   final int total;
+
+  /// Libra vendida por monto ("$50"): el total es el monto y la cantidad sale del precio.
+  final bool porMonto;
 }
 
 class SolicitudCobro {
@@ -132,33 +149,9 @@ class VentaService {
         throw DatoInvalido('La línea "${l.descripcion}" tiene cantidad o monto en cero.');
       }
     }
-    final subtotal = s.lineas.fold<int>(0, (a, l) => a + l.total);
     if (s.descuento < 0) throw const DatoInvalido('El descuento no puede ser negativo.');
-    if (s.descuento > subtotal) {
-      throw const DatoInvalido('El descuento no puede ser mayor que la venta.');
-    }
-    final total = subtotal - s.descuento;
-
-    final int recibido;
-    final int devuelta;
-    switch (s.formaPago) {
-      case FormaPago.efectivo:
-        recibido = s.montoRecibido ?? total;
-        if (recibido < total) {
-          throw DatoInvalido('Falta dinero: el cliente dio ${formatoRD(recibido)} '
-              'y la venta es ${formatoRD(total)}.');
-        }
-        devuelta = recibido - total;
-      case FormaPago.tarjeta:
-      case FormaPago.transferencia:
-        recibido = total;
-        devuelta = 0;
-      case FormaPago.fiado:
-        if (s.clienteId == null) {
-          throw const DatoInvalido('Para fiar hay que escoger un cliente.');
-        }
-        recibido = 0;
-        devuelta = 0;
+    if (s.formaPago == FormaPago.fiado && s.clienteId == null) {
+      throw const DatoInvalido('Para fiar hay que escoger un cliente.');
     }
 
     final fecha = _reloj();
@@ -171,16 +164,9 @@ class VentaService {
       if (s.clienteId != null) {
         cliente = await (db.select(db.clientes)..where((c) => c.id.equals(s.clienteId!)))
             .getSingleOrNull();
-        if (cliente == null || !cliente.activo) {
-          throw const DatoInvalido('Ese cliente no existe.');
-        }
-      }
-
-      if (s.formaPago == FormaPago.fiado) {
-        final debe = await db.deudaCliente(cliente!.id);
-        final limite = cliente.limiteCredito;
-        if (limite > 0 && debe + total > limite) {
-          throw LimiteFiadoExcedido(debe: debe, limite: limite, quedaria: debe + total);
+        if (cliente == null) throw const DatoInvalido('Ese cliente no existe.');
+        if (s.formaPago == FormaPago.fiado && !cliente.activo) {
+          throw DatoInvalido('${cliente.nombre} está desactivado y no puede tomar fiado.');
         }
       }
 
@@ -191,10 +177,64 @@ class VentaService {
         if (productos.containsKey(id)) continue;
         final prod = await (db.select(db.productos)..where((p) => p.id.equals(id)))
             .getSingleOrNull();
-        if (prod == null) {
-          throw DatoInvalido('El producto "${l.descripcion}" ya no existe.');
+        if (prod == null || !prod.activo) {
+          throw DatoInvalido('El producto "${l.descripcion}" ya no existe o está desactivado.');
         }
         productos[id] = prod;
+      }
+
+      // El precio sale de la base, no de la pantalla. Solo los servicios
+      // ("Varios", envío) llevan el monto que se escribió.
+      final lineas = <LineaCobro>[];
+      for (final l in s.lineas) {
+        final prod = productos[l.productoId ?? varios.id]!;
+        if (esServicio(prod)) {
+          lineas.add(l.productoId == null ? l : LineaCobro.servicio(productoId: prod.id, descripcion: prod.nombre, monto: l.total));
+        } else if (l.porMonto) {
+          if (prod.precio <= 0) throw DatoInvalido('${prod.nombre} no tiene precio.');
+          lineas.add(LineaCobro.porMonto(
+              productoId: prod.id, descripcion: prod.nombre, monto: l.total, precioUnitario: prod.precio));
+        } else {
+          if (prod.unidad == UnidadVenta.unidad && l.cantidad % milesimasPorUnidad != 0) {
+            throw DatoInvalido('${prod.nombre} se vende por unidad; la cantidad debe ser entera.');
+          }
+          lineas.add(LineaCobro(
+              productoId: prod.id, descripcion: prod.nombre, cantidad: l.cantidad, precioUnitario: prod.precio));
+        }
+      }
+      if (lineas.any((l) => l.cantidad <= 0 || l.total <= 0)) {
+        throw const DatoInvalido('Hay un producto con cantidad o monto en cero.');
+      }
+      final subtotal = lineas.fold<int>(0, (a, l) => a + l.total);
+      if (s.descuento > subtotal) {
+        throw const DatoInvalido('El descuento no puede ser mayor que la venta.');
+      }
+      final total = subtotal - s.descuento;
+      final int recibido;
+      final int devuelta;
+      switch (s.formaPago) {
+        case FormaPago.efectivo:
+          recibido = s.montoRecibido ?? total;
+          if (recibido < total) {
+            throw DatoInvalido('Falta dinero: el cliente dio ${formatoRD(recibido)} '
+                'y la venta es ${formatoRD(total)}.');
+          }
+          devuelta = recibido - total;
+        case FormaPago.tarjeta:
+        case FormaPago.transferencia:
+          recibido = total;
+          devuelta = 0;
+        case FormaPago.fiado:
+          recibido = 0;
+          devuelta = 0;
+      }
+
+      if (s.formaPago == FormaPago.fiado) {
+        final debe = await db.deudaCliente(cliente!.id);
+        final limite = cliente.limiteCredito;
+        if (limite > 0 && debe + total > limite) {
+          throw LimiteFiadoExcedido(debe: debe, limite: limite, quedaria: debe + total);
+        }
       }
 
       final nombreCliente = cliente?.nombre ?? _limpio(s.nombreCliente);
@@ -224,9 +264,9 @@ class VentaService {
       final existencia = {for (final e in productos.entries) e.key: e.value.existencia};
       final lineasEvento = <Map<String, Object?>>[];
 
-      for (final l in s.lineas) {
+      for (final l in lineas) {
         final prod = productos[l.productoId ?? varios.id]!;
-        final esVarios = prod.codigo == codigoVarios;
+        final esVarios = esServicio(prod);
         final costo = esVarios ? 0 : prod.costo;
 
         await db.into(db.ventaLineas).insert(VentaLineasCompanion.insert(
@@ -329,6 +369,11 @@ class VentaService {
           .getSingleOrNull();
       if (venta == null) throw const DatoInvalido('Esa venta no existe.');
       if (venta.anulada) throw const DatoInvalido('Esa venta ya está anulada.');
+      final turno = await (db.select(db.turnosCaja)..where((t) => t.id.equals(venta.turnoCajaId))).getSingle();
+      if (turno.cierre != null) {
+        throw const DatoInvalido(
+            'La venta es de un turno ya cerrado; corrija con un ajuste de inventario o de caja.');
+      }
 
       await (db.update(db.ventas)..where((v) => v.id.equals(ventaId))).write(VentasCompanion(
         anulada: const Value(true),
@@ -341,7 +386,7 @@ class VentaService {
       for (final l in lineas) {
         final prod = await (db.select(db.productos)..where((p) => p.id.equals(l.productoId)))
             .getSingle();
-        if (prod.codigo == codigoVarios) continue;
+        if (esServicio(prod)) continue;
         final nueva = prod.existencia + l.cantidad;
         await (db.update(db.productos)..where((p) => p.id.equals(prod.id)))
             .write(ProductosCompanion(existencia: Value(nueva)));
@@ -387,9 +432,52 @@ class VentaService {
   }
 
   /// Llamar cuando la impresora confirma el ticket.
-  Future<void> marcarTicketImpreso(int ventaId) =>
+  Future<void> marcarTicketImpreso(int ventaId) => marcarTicketPendiente(ventaId, pendiente: false);
+
+  /// Si la impresora falla, el ticket queda pendiente para el botón amarillo.
+  Future<void> marcarTicketPendiente(int ventaId, {required bool pendiente}) =>
       (db.update(db.ventas)..where((v) => v.id.equals(ventaId)))
-          .write(const VentasCompanion(ticketPendiente: Value(false)));
+          .write(VentasCompanion(ticketPendiente: Value(pendiente)));
+
+  /// La venta con sus líneas, el cajero y el cliente, para el ticket y para anular.
+  Future<VentaDetalle?> porId(int id) async {
+    final v = await (db.select(db.ventas)..where((x) => x.id.equals(id))).getSingleOrNull();
+    if (v == null) return null;
+    final lineas = await (db.select(db.ventaLineas)
+          ..where((l) => l.ventaId.equals(id))
+          ..orderBy([(l) => OrderingTerm.asc(l.id)]))
+        .get();
+    final cajero = await (db.select(db.usuarios)..where((u) => u.id.equals(v.usuarioId))).getSingleOrNull();
+    final cliente = v.clienteId == null
+        ? null
+        : await (db.select(db.clientes)..where((c) => c.id.equals(v.clienteId!))).getSingleOrNull();
+    return VentaDetalle(venta: v, lineas: lineas, cajero: cajero?.nombre ?? '', cliente: cliente?.nombre);
+  }
+
+  /// Las ventas de un turno, de la más nueva a la más vieja.
+  Future<List<VentaListada>> delTurno(int turnoId) => _listar((v) => v.turnoCajaId.equals(turnoId));
+
+  /// Ventas desde [desde] hasta antes de [hasta].
+  Future<List<VentaListada>> entre(DateTime desde, DateTime hasta) =>
+      _listar((v) => v.fecha.isBiggerOrEqualValue(desde) & v.fecha.isSmallerThanValue(hasta));
+
+  Future<List<VentaListada>> _listar(Expression<bool> Function(Ventas v) filtro) async {
+    final q = db.select(db.ventas).join([
+      leftOuterJoin(db.clientes, db.clientes.id.equalsExp(db.ventas.clienteId)),
+      leftOuterJoin(db.usuarios, db.usuarios.id.equalsExp(db.ventas.usuarioId)),
+    ])
+      ..where(filtro(db.ventas))
+      ..orderBy([OrderingTerm.desc(db.ventas.id)]);
+    final filas = await q.get();
+    return [
+      for (final f in filas)
+        VentaListada(
+          venta: f.readTable(db.ventas),
+          cliente: f.readTableOrNull(db.clientes)?.nombre,
+          cajero: f.readTableOrNull(db.usuarios)?.nombre ?? '',
+        ),
+    ];
+  }
 
   /// Para el botón amarillo "Imprimir tickets pendientes".
   Future<List<Venta>> ventasConTicketPendiente() => (db.select(db.ventas)
@@ -401,4 +489,30 @@ class VentaService {
     final x = t?.trim();
     return (x == null || x.isEmpty) ? null : x;
   }
+}
+
+/// Una venta completa.
+class VentaDetalle {
+  const VentaDetalle({required this.venta, required this.lineas, required this.cajero, this.cliente});
+
+  final Venta venta;
+  final List<VentaLinea> lineas;
+  final String cajero;
+
+  /// Nombre del cliente de la lista, si se ligó uno.
+  final String? cliente;
+
+  /// El nombre escrito a mano o el del cliente de la lista.
+  String? get nombreParaMostrar => venta.nombreCliente ?? cliente;
+}
+
+/// Una fila de una lista de ventas.
+class VentaListada {
+  const VentaListada({required this.venta, this.cliente, required this.cajero});
+
+  final Venta venta;
+  final String? cliente;
+  final String cajero;
+
+  String? get nombreParaMostrar => venta.nombreCliente ?? cliente;
 }

@@ -36,6 +36,10 @@ void main() {
           'movimientos_caja',
           'bitacora',
           'eventos_salida',
+          'suplidores',
+          'compras',
+          'compra_lineas',
+          'alias_productos',
         ]),
       );
     });
@@ -43,7 +47,9 @@ void main() {
     test('siembra el negocio con su instalacionId', () async {
       final n = await db.negocio();
       expect(n.instalacionId, isNotEmpty);
-      expect(n.anchoTicket, 80);
+      expect(n.anchoTicket, 48);
+      expect(n.mensajeTicket, 'Gracias por su compra');
+      expect(n.ticketOscuro, isTrue);
       expect(n.intensidadTicket, IntensidadTicket.normal);
       expect(await contar(db, 'negocio'), 1);
     });
@@ -58,15 +64,51 @@ void main() {
       expect(await db.pinHasher.verificar('0000', u.pinHash), isFalse);
     });
 
-    test('crea el producto interno Varios', () async {
+    test('crea los productos internos Varios y Envío', () async {
       final v = await db.productoVarios();
       expect(v.codigo, codigoVarios);
       expect(v.nombre, 'Varios');
+      final e = await db.productoEnvio();
+      expect(e.nombre, 'Envío a domicilio');
+      expect(esServicio(v) && esServicio(e), isTrue);
+    });
+
+    test('varios productos pueden quedar sin código; con código no se repite', () async {
+      await db.into(db.productos).insert(ProductosCompanion.insert(nombre: 'Pan de agua', precio: 1000));
+      await db.into(db.productos).insert(ProductosCompanion.insert(nombre: 'Plátano', precio: 2500));
+      expect(await contar(db, 'productos'), 4);
     });
 
     test('las llaves foráneas están activas', () async {
       final f = await db.customSelect('PRAGMA foreign_keys').getSingle();
       expect(f.read<int>('foreign_keys'), 1);
+    });
+
+    test('las tablas tienen sus llaves foráneas (no basta con activarlas)', () async {
+      Future<Set<String>> destinos(String tabla) async {
+        final filas = await db.customSelect('PRAGMA foreign_key_list($tabla)').get();
+        return filas.map((f) => f.read<String>('table')).toSet();
+      }
+
+      expect(await destinos('ventas'), {'usuarios', 'turnos_caja', 'clientes'});
+      expect(await destinos('venta_lineas'), {'ventas', 'productos'});
+      expect(await destinos('productos'), {'categorias'});
+    });
+
+    test('no deja guardar una línea de una venta que no existe', () async {
+      final varios = await db.productoVarios();
+      await expectLater(
+        db.into(db.ventaLineas).insert(VentaLineasCompanion.insert(
+              ventaId: 999,
+              productoId: varios.id,
+              descripcion: 'Varios',
+              cantidad: 1000,
+              precioUnitario: 100,
+              costoUnitario: 0,
+              total: 100,
+            )),
+        throwsA(anything),
+      );
     });
 
     test('el código de producto es único', () async {

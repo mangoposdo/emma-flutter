@@ -9,7 +9,8 @@ import 'colores.dart';
 ///
 /// * Barra azul, fondo blanco, texto azul; textos de apoyo en gris pizarra.
 /// * Títulos en Archivo Black.
-/// * Textos: Segoe UI en Windows (manual), Archivo en Android e iPhone.
+/// * Textos: la letra del sistema en escritorio (Segoe UI en Windows, como pide
+///   el manual), Archivo en Android e iPhone.
 /// * Rojo solo en el botón principal: usar [EmmaTema.botonPrincipal].
 ///   Los demás botones son azules o con borde azul.
 /// * Letra mínima de 16 px en la pantalla de ventas (PRD, accesibilidad).
@@ -19,10 +20,11 @@ abstract final class EmmaTema {
 
   static ThemeData claro({TargetPlatform? plataforma}) {
     final p = plataforma ?? defaultTargetPlatform;
-    final esWindows = p == TargetPlatform.windows;
+    final esEscritorio = p == TargetPlatform.windows || p == TargetPlatform.macOS || p == TargetPlatform.linux;
 
-    // En Windows se deja la letra del sistema (Segoe UI).
-    final familiaTexto = esWindows ? null : 'packages/emma_marca/$_familiaArchivo';
+    // En escritorio se deja la letra del sistema: Segoe UI en Windows, como la
+    // caja de la 0.7 (en macOS, que es solo para desarrollar, San Francisco).
+    final familiaTexto = esEscritorio ? null : 'packages/emma_marca/$_familiaArchivo';
     const familiaTit = 'packages/emma_marca/$familiaTitulos';
 
     final esquema = ColorScheme.fromSeed(
